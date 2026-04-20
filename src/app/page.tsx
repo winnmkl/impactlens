@@ -53,7 +53,7 @@ type CustomResponse = {
 };
 
 const scoreOptions = [-2, -1, -0.5, 0, 0.5, 1, 2];
-type Section = "dashboard" | "add" | "register" | "risk" | "matrix" | "guidelines";
+type Section = "dashboard" | "add" | "register" | "risk" | "matrix" | "controls" | "actions" | "guidelines";
 
 export default function Home() {
   const [section, setSection] = useState<Section>("dashboard");
@@ -88,6 +88,9 @@ export default function Home() {
   const [responses, setResponses] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState("");
+  const now = new Date();
+  const [yearFrom, setYearFrom] = useState(now.getFullYear());
+  const [yearTo, setYearTo] = useState(now.getFullYear() + 1);
 
   async function refresh() {
     const [metaRes, assetsRes, assessRes] = await Promise.all([
@@ -242,6 +245,26 @@ export default function Home() {
     return avg;
   }, [assessments]);
 
+  const controlDistribution = useMemo(() => {
+    const buckets: Record<string, number> = {
+      Ineffective: 0,
+      "Partially Effective": 0,
+      "Substantially Effective": 0,
+      "Fully Effective": 0,
+    };
+    for (const item of assessments) {
+      if (buckets[item.controlEffectiveness] !== undefined) {
+        buckets[item.controlEffectiveness] += 1;
+      }
+    }
+    return buckets;
+  }, [assessments]);
+
+  const actionPlanCandidates = useMemo(
+    () => assessments.filter((item) => item.residualRisk === "High" || item.residualRisk === "Moderate" || item.residualRisk === "Critical"),
+    [assessments],
+  );
+
   useEffect(() => {
     if (!notification) return;
     const timeout = setTimeout(() => setNotification(null), 2600);
@@ -267,6 +290,24 @@ export default function Home() {
           </div>
           <div className="header-stat">
             High Risk: <span style={{ color: "var(--danger)" }}>{highCount}</span>
+          </div>
+          <div className="header-stat">
+            Year:
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 6 }}>
+              <input
+                style={{ width: 68, padding: "2px 6px", fontSize: 10 }}
+                type="number"
+                value={yearFrom}
+                onChange={(e) => setYearFrom(Number(e.target.value))}
+              />
+              -
+              <input
+                style={{ width: 68, padding: "2px 6px", fontSize: 10 }}
+                type="number"
+                value={yearTo}
+                onChange={(e) => setYearTo(Number(e.target.value))}
+              />
+            </span>
           </div>
           <a className="btn btn-sm" href="/database">
             Database
@@ -295,9 +336,20 @@ export default function Home() {
             <div className="nav-label">Risk</div>
             <button className={`nav-item ${section === "risk" ? "active" : ""}`} onClick={() => setSection("risk")}>
               <span className="nav-icon">[△]</span> Risk Register
+              <span className="nav-badge">{highCount}</span>
             </button>
             <button className={`nav-item ${section === "matrix" ? "active" : ""}`} onClick={() => setSection("matrix")}>
               <span className="nav-icon">[#]</span> Risk Matrix
+            </button>
+          </div>
+          <div className="nav-section">
+            <div className="nav-label">Controls</div>
+            <button className={`nav-item ${section === "controls" ? "active" : ""}`} onClick={() => setSection("controls")}>
+              <span className="nav-icon">[✓]</span> Control Measures
+            </button>
+            <button className={`nav-item ${section === "actions" ? "active" : ""}`} onClick={() => setSection("actions")}>
+              <span className="nav-icon">[!]</span> Action Plans
+              <span className="nav-badge">{actionPlanCandidates.length}</span>
             </button>
           </div>
           <div className="nav-section">
@@ -315,6 +367,7 @@ export default function Home() {
                 <div>
                   <div className="page-title">DASH<span>BOARD</span></div>
                   <div className="page-desc">{"// system overview - real-time risk posture"}</div>
+                  <div className="page-desc">{`// assessment cycle ${yearFrom}-${yearTo}`}</div>
                 </div>
               </div>
               <div className="metrics-grid">
@@ -703,6 +756,95 @@ export default function Home() {
             </>
           )}
 
+          {section === "controls" && (
+            <>
+              <div className="page-header">
+                <div>
+                  <div className="page-title">CONTROL <span>MEASURES</span></div>
+                  <div className="page-desc">{"// implementation status across all assets"}</div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-header">Control implementation coverage</div>
+                <div className="ctrl-bar-wrap">
+                  <div className="ctrl-bar-label">
+                    <span>Overall effectiveness score</span>
+                    <span>{controlCoverage}%</span>
+                  </div>
+                  <div className="ctrl-bar-track">
+                    <div className="ctrl-bar-fill" style={{ width: `${controlCoverage}%`, background: "var(--accent)" }} />
+                  </div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-header">Control effectiveness distribution</div>
+                {Object.entries(controlDistribution).map(([label, value]) => {
+                  const pct = assessments.length === 0 ? 0 : Math.round((value / assessments.length) * 100);
+                  const color =
+                    label === "Ineffective"
+                      ? "var(--danger)"
+                      : label === "Partially Effective"
+                        ? "var(--warn)"
+                        : label === "Substantially Effective"
+                          ? "var(--accent2)"
+                          : "var(--success)";
+                  return (
+                    <div className="chart-bar-row" key={label}>
+                      <div className="chart-bar-label">{label}</div>
+                      <div className="chart-bar-track">
+                        <div className="chart-bar-fill" style={{ width: `${pct}%`, background: color }}>
+                          {pct > 8 ? `${pct}%` : ""}
+                        </div>
+                      </div>
+                      <div className="chart-bar-count">{value}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {section === "actions" && (
+            <>
+              <div className="page-header">
+                <div>
+                  <div className="page-title">ACTION <span>PLANS</span></div>
+                  <div className="page-desc">{"// mitigations for high and moderate residual risk"}</div>
+                </div>
+              </div>
+              {actionPlanCandidates.length === 0 ? (
+                <div className="card">
+                  <div className="info-row">
+                    <div className="lbl">Status</div>
+                    <div className="val">No assets with High/Moderate/Critical residual risk.</div>
+                  </div>
+                </div>
+              ) : (
+                actionPlanCandidates.map((record) => (
+                  <div className="card" key={record.id}>
+                    <div className="card-header">Action required</div>
+                    <div className="info-row">
+                      <div className="lbl">Asset</div>
+                      <div className="val">{assets.find((asset) => asset.id === record.assetId)?.name ?? "Unlinked asset"}</div>
+                    </div>
+                    <div className="info-row">
+                      <div className="lbl">Risk</div>
+                      <div className="val">{record.risk}</div>
+                    </div>
+                    <div className="info-row">
+                      <div className="lbl">Residual rating</div>
+                      <div className="val">{riskBadge(record.residualRisk)}</div>
+                    </div>
+                    <div className="info-row">
+                      <div className="lbl">Suggested action</div>
+                      <div className="val">{record.justification || "Define mitigation owner, target date, and treatment actions."}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </>
+          )}
+
           {section === "guidelines" && (
             <>
               <div className="page-header">
@@ -723,6 +865,7 @@ export default function Home() {
                 <div className="info-row"><div className="lbl">NIST CSF</div><div className="val">Identify, Protect, Detect, Respond, Recover</div></div>
                 <div className="info-row"><div className="lbl">ISO/IEC 27001</div><div className="val">Risk treatment, controls, continual improvement</div></div>
                 <div className="info-row"><div className="lbl">Template standard</div><div className="val">Inherent risk matrix + control effectiveness + residual risk</div></div>
+                <div className="info-row"><div className="lbl">Assessment cycle</div><div className="val">{`${yearFrom}-${yearTo}`}</div></div>
               </div>
             </>
           )}
