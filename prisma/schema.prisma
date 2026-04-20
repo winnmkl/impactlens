@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Asset {
+  id             String       @id @default(cuid())
+  assetCode      String       @unique
+  name           String
+  description    String
+  sector         String
+  owner          String
+  classification String
+  confidentiality Int
+  integrity      Int
+  availability   Int
+  assetValue     Int
+  createdAt      DateTime     @default(now())
+  assessments    Assessment[]
+}
+
+model Assessment {
+  id                   String      @id @default(cuid())
+  sector               String
+  risk                 String
+  likelihood           Int
+  severity             Int
+  finalScore           Int
+  riskLevel            String
+  controlEffectiveness String
+  residualRisk         String
+  justification        String
+  createdAt            DateTime    @default(now())
+  assetId              String?
+  asset                Asset?      @relation(fields: [assetId], references: [id])
+  responses            Response[]
+}
+
+model Response {
+  id           String     @id @default(cuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  dimension    String
+  factorType   String
+  prompt       String
+  value        Float
+}
+
+model DocumentHistory {
+  id           String   @id @default(cuid())
+  version      String
+  description  String
+  modifiedBy   String
+  approvedBy   String
+  approvedDate DateTime
+  createdAt    DateTime @default(now())
+}
+
+model SignOff {
+  id          String   @id @default(cuid())
+  preparedBy  String
+  reviewedBy  String
+  approvedBy  String
+  reviewYear  Int
+  description String
+  createdAt   DateTime @default(now())
+}
