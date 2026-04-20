@@ -252,8 +252,8 @@ export default function Home() {
     <div className="iar-root">
       <header className="iar-header">
         <div className="logo">
-          <div className="logo-mark">IAR</div>
-          <div className="logo-sub">Information Security Risk Assessment</div>
+          <div className="logo-mark">ImpactLens</div>
+          <div className="logo-sub">Information Security Risk Assessment Platform</div>
         </div>
         <div className="header-right">
           <div className="status-dot" />
