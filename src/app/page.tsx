@@ -20,7 +20,6 @@ type MetadataResponse = {
 type AssetRecord = {
   id: string;
   assetCode: string;
-  assetCode: string;
   name: string;
   description: string;
   owner: string;
@@ -54,8 +53,7 @@ type CustomResponse = {
 };
 
 const scoreOptions = [-2, -1, -0.5, 0, 0.5, 1, 2];
-const sections = ["dashboard", "add", "register", "risk", "matrix", "guidelines"] as const;
-type Section = (typeof sections)[number];
+type Section = "dashboard" | "add" | "register" | "risk" | "matrix" | "guidelines";
 
 export default function Home() {
   const [section, setSection] = useState<Section>("dashboard");
@@ -311,7 +309,7 @@ export default function Home() {
               <div className="page-header">
                 <div>
                   <div className="page-title">DASH<span>BOARD</span></div>
-                  <div className="page-desc">// system overview - real-time risk posture</div>
+                  <div className="page-desc">{"// system overview - real-time risk posture"}</div>
                 </div>
               </div>
               <div className="metrics-grid">
@@ -371,7 +369,7 @@ export default function Home() {
               <div className="page-header">
                 <div>
                   <div className="page-title">ADD <span>ASSET</span></div>
-                  <div className="page-desc">// register asset and run qualitative impact analysis</div>
+                  <div className="page-desc">{"// register asset and run qualitative impact analysis"}</div>
                 </div>
               </div>
 
@@ -551,7 +549,7 @@ export default function Home() {
               <div className="page-header">
                 <div>
                   <div className="page-title">ASSET <span>REGISTER</span></div>
-                  <div className="page-desc">// complete information asset inventory</div>
+                  <div className="page-desc">{"// complete information asset inventory"}</div>
                 </div>
               </div>
               <div className="search-bar">
@@ -593,7 +591,7 @@ export default function Home() {
               <div className="page-header">
                 <div>
                   <div className="page-title">RISK <span>REGISTER</span></div>
-                  <div className="page-desc">// inherent and residual risk across all assets</div>
+                  <div className="page-desc">{"// inherent and residual risk across all assets"}</div>
                 </div>
               </div>
               <div className="search-bar">
@@ -653,7 +651,7 @@ export default function Home() {
               <div className="page-header">
                 <div>
                   <div className="page-title">RISK <span>MATRIX</span></div>
-                  <div className="page-desc">// probability x severity scoring reference</div>
+                  <div className="page-desc">{"// probability x severity scoring reference"}</div>
                 </div>
               </div>
               <div className="card">
@@ -705,7 +703,7 @@ export default function Home() {
               <div className="page-header">
                 <div>
                   <div className="page-title">RISK <span>GUIDELINES</span></div>
-                  <div className="page-desc">// reference documentation from template and standards</div>
+                  <div className="page-desc">{"// reference documentation from template and standards"}</div>
                 </div>
               </div>
               <div className="card">
