@@ -21,14 +21,14 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-ibm-plex-sans);
+  --font-mono: var(--font-ibm-plex-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "IBM Plex Sans", sans-serif;
+  font-family: var(--font-ibm-plex-sans), sans-serif;
   font-size: 14px;
 }
 
@@ -64,15 +64,49 @@ body::before {
   align-items: center;
 }
 
+.logo-lens {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+}
+
+.lens-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  box-shadow: 0 0 10px rgb(200 255 0 / 35%);
+}
+
+.lens-core {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%, #83f2ff 0%, var(--accent2) 45%, #0b2e40 100%);
+  border: 1px solid rgb(0 212 255 / 70%);
+}
+
+.lens-glint {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 75%);
+}
+
 .logo-mark {
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-bebas-neue), sans-serif;
   font-size: 30px;
   letter-spacing: 2px;
   color: var(--accent);
 }
 
 .logo-sub {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 10px;
   color: var(--text3);
   text-transform: uppercase;
@@ -92,7 +126,7 @@ body::before {
 }
 
 .header-stat {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 11px;
   color: var(--text2);
 }
@@ -117,7 +151,7 @@ nav {
 }
 
 .nav-label {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 9px;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -147,7 +181,7 @@ nav {
 }
 
 .nav-icon {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 11px;
 }
 
@@ -160,7 +194,7 @@ main {
 }
 
 .page-title {
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-bebas-neue), sans-serif;
   font-size: 42px;
   letter-spacing: 2px;
 }
@@ -170,7 +204,7 @@ main {
 }
 
 .page-desc {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   color: var(--text2);
   font-size: 12px;
 }
@@ -184,7 +218,7 @@ main {
 }
 
 .card-header {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 10px;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -204,7 +238,7 @@ main {
 
 label {
   display: block;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 10px;
   color: var(--text3);
   text-transform: uppercase;
@@ -216,7 +250,7 @@ input, select, textarea {
   background: var(--bg3);
   border: 1px solid var(--border);
   color: var(--foreground);
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 12px;
   border-radius: 3px;
   padding: 8px 10px;
@@ -229,7 +263,7 @@ textarea { min-height: 72px; }
   align-items: center;
   gap: 6px;
   padding: 9px 14px;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 11px;
   text-transform: uppercase;
   border: 1px solid var(--border2);
@@ -285,13 +319,13 @@ textarea { min-height: 72px; }
 .metric-card.info::before { background: var(--accent2); }
 
 .metric-num {
-  font-family: "Bebas Neue", sans-serif;
+  font-family: var(--font-bebas-neue), sans-serif;
   font-size: 48px;
   line-height: 1;
 }
 
 .metric-label {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 10px;
   color: var(--text3);
   margin-top: 4px;
@@ -310,7 +344,7 @@ table {
 
 thead th {
   background: var(--bg3);
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 9px;
   color: var(--text3);
   text-transform: uppercase;
@@ -331,7 +365,7 @@ tbody tr:hover {
 
 .badge {
   display: inline-flex;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 10px;
   text-transform: uppercase;
   padding: 3px 8px;
@@ -366,7 +400,7 @@ tbody tr:hover {
   padding: 8px 4px;
   text-align: center;
   border-radius: 2px;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 10px;
 }
 
@@ -380,7 +414,7 @@ tbody tr:hover {
 .ctrl-bar-label {
   display: flex;
   justify-content: space-between;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 11px;
   color: var(--text2);
   margin-bottom: 5px;
@@ -407,7 +441,7 @@ tbody tr:hover {
 
 .info-row .lbl {
   color: var(--text3);
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), monospace;
   font-size: 10px;
 }
 
