@@ -20,11 +20,21 @@ type MetadataResponse = {
 type AssetRecord = {
   id: string;
   assetCode: string;
+  assetCode: string;
   name: string;
+  description: string;
+  owner: string;
+  sector: string;
+  classification: "Public" | "Internal Use" | "Confidential" | "Restricted";
+  confidentiality: number;
+  integrity: number;
+  availability: number;
+  assetValue: number;
 };
 
 type AssessmentRecord = {
   id: string;
+  assetId?: string | null;
   risk: string;
   sector: string;
   likelihood: number;
@@ -32,6 +42,8 @@ type AssessmentRecord = {
   finalScore: number;
   riskLevel: string;
   residualRisk: string;
+  controlEffectiveness: string;
+  justification: string;
 };
 
 type CustomResponse = {
@@ -42,11 +54,15 @@ type CustomResponse = {
 };
 
 const scoreOptions = [-2, -1, -0.5, 0, 0.5, 1, 2];
+const sections = ["dashboard", "add", "register", "risk", "matrix", "guidelines"] as const;
+type Section = (typeof sections)[number];
 
 export default function Home() {
+  const [section, setSection] = useState<Section>("dashboard");
   const [metadata, setMetadata] = useState<MetadataResponse | null>(null);
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
+  const [notification, setNotification] = useState<{ text: string; error: boolean } | null>(null);
 
   const [assetForm, setAssetForm] = useState({
     assetCode: "IA-001",
@@ -72,6 +88,8 @@ export default function Home() {
   const [customValue, setCustomValue] = useState(0);
   const [customResponses, setCustomResponses] = useState<CustomResponse[]>([]);
   const [responses, setResponses] = useState<Record<string, number>>({});
+  const [search, setSearch] = useState("");
+  const [riskFilter, setRiskFilter] = useState("");
 
   async function refresh() {
     const [metaRes, assetsRes, assessRes] = await Promise.all([
@@ -90,20 +108,52 @@ export default function Home() {
   }
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      if (!active) return;
+    async function load() {
       await refresh();
-    })();
-    return () => {
-      active = false;
-    };
+    }
+    void load();
   }, []);
 
   const activeQuestions: RiskQuestion[] = useMemo(() => {
     if (!metadata?.questions) return [];
     return metadata.questions[assessmentForm.risk] ?? [];
   }, [metadata, assessmentForm.risk]);
+
+  const linkedByAsset = useMemo(() => {
+    const map = new Map<string, AssessmentRecord>();
+    for (const assessment of assessments) {
+      if (assessment.assetId && !map.has(assessment.assetId)) {
+        map.set(assessment.assetId, assessment);
+      }
+    }
+    return map;
+  }, [assessments]);
+
+  const highCount = useMemo(
+    () => assessments.filter((item) => item.residualRisk === "High" || item.residualRisk === "Critical").length,
+    [assessments],
+  );
+  const moderateCount = useMemo(() => assessments.filter((item) => item.residualRisk === "Moderate").length, [assessments]);
+  const piiLikeCount = useMemo(
+    () => assets.filter((asset) => asset.classification === "Confidential" || asset.classification === "Restricted").length,
+    [assets],
+  );
+
+  const filteredAssets = useMemo(() => {
+    const term = search.toLowerCase().trim();
+    if (!term) return assets;
+    return assets.filter(
+      (asset) =>
+        asset.name.toLowerCase().includes(term) ||
+        asset.assetCode.toLowerCase().includes(term) ||
+        asset.owner.toLowerCase().includes(term),
+    );
+  }, [assets, search]);
+
+  const filteredAssessments = useMemo(() => {
+    if (!riskFilter) return assessments;
+    return assessments.filter((item) => item.residualRisk === riskFilter);
+  }, [assessments, riskFilter]);
 
   async function createAsset(e: React.FormEvent) {
     e.preventDefault();
@@ -112,6 +162,7 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(assetForm),
     });
+    setNotification({ text: "Asset saved successfully", error: false });
     await refresh();
   }
 
@@ -134,6 +185,7 @@ export default function Home() {
     });
     setCustomResponses([]);
     setResponses({});
+    setNotification({ text: "Risk assessment completed", error: false });
     await refresh();
   }
 
@@ -152,96 +204,528 @@ export default function Home() {
     setCustomValue(0);
   }
 
+  function classBadge(classification: AssetRecord["classification"]) {
+    const map: Record<AssetRecord["classification"], string> = {
+      Public: "badge-pub",
+      "Internal Use": "badge-int",
+      Confidential: "badge-con",
+      Restricted: "badge-res",
+    };
+    return <span className={`badge ${map[classification]}`}>{classification}</span>;
+  }
+
+  function riskBadge(level: string) {
+    const cls =
+      level === "Critical"
+        ? "badge-cr"
+        : level === "High"
+          ? "badge-hi"
+          : level === "Moderate"
+            ? "badge-mo"
+            : level === "Low"
+              ? "badge-lo"
+              : "badge-vl";
+    return <span className={`badge ${cls}`}>{level}</span>;
+  }
+
+  const controlCoverage = useMemo(() => {
+    const scoreMap: Record<string, number> = {
+      Ineffective: 15,
+      "Partially Effective": 40,
+      "Substantially Effective": 75,
+      "Fully Effective": 100,
+    };
+    const avg =
+      assessments.length === 0
+        ? 0
+        : Math.round(
+            assessments.reduce((acc, curr) => acc + (scoreMap[curr.controlEffectiveness] ?? 0), 0) / assessments.length,
+          );
+    return avg;
+  }, [assessments]);
+
+  useEffect(() => {
+    if (!notification) return;
+    const timeout = setTimeout(() => setNotification(null), 2600);
+    return () => clearTimeout(timeout);
+  }, [notification]);
+
   return (
-    <div className="min-h-screen bg-slate-950 p-8 text-slate-100">
-      <main className="mx-auto max-w-6xl space-y-8">
-        <header className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-          <h1 className="text-3xl font-bold">ImpactLens</h1>
-          <p className="mt-2 text-slate-300">
-            Information Security Risk Assessment Tool for qualitative student analysis using template-aligned controls and
-            NIST/ISO references.
-          </p>
-          <a className="mt-3 inline-block text-sm text-cyan-300 underline" href="/database">
-            View Database Records
-          </a>
-        </header>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <form className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-3" onSubmit={createAsset}>
-            <h2 className="text-xl font-semibold">1) Information Asset Inventory</h2>
-            <input className="w-full rounded bg-slate-800 p-2" value={assetForm.assetCode} onChange={(e) => setAssetForm({ ...assetForm, assetCode: e.target.value })} placeholder="Asset Code (IA-001)" />
-            <input className="w-full rounded bg-slate-800 p-2" value={assetForm.name} onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })} placeholder="Asset Name" />
-            <textarea className="w-full rounded bg-slate-800 p-2" value={assetForm.description} onChange={(e) => setAssetForm({ ...assetForm, description: e.target.value })} placeholder="Description" />
-            <input className="w-full rounded bg-slate-800 p-2" value={assetForm.owner} onChange={(e) => setAssetForm({ ...assetForm, owner: e.target.value })} placeholder="Owner" />
-            <select className="w-full rounded bg-slate-800 p-2" value={assetForm.sector} onChange={(e) => setAssetForm({ ...assetForm, sector: e.target.value })}>
-              {metadata?.sectors?.map((sector: string) => <option key={sector}>{sector}</option>)}
-            </select>
-            <div className="grid grid-cols-3 gap-2">
-              <label className="text-sm">C<input type="number" min={1} max={3} className="mt-1 w-full rounded bg-slate-800 p-2" value={assetForm.confidentiality} onChange={(e) => setAssetForm({ ...assetForm, confidentiality: Number(e.target.value) })} /></label>
-              <label className="text-sm">I<input type="number" min={1} max={3} className="mt-1 w-full rounded bg-slate-800 p-2" value={assetForm.integrity} onChange={(e) => setAssetForm({ ...assetForm, integrity: Number(e.target.value) })} /></label>
-              <label className="text-sm">A<input type="number" min={1} max={3} className="mt-1 w-full rounded bg-slate-800 p-2" value={assetForm.availability} onChange={(e) => setAssetForm({ ...assetForm, availability: Number(e.target.value) })} /></label>
-            </div>
-            <button className="rounded bg-cyan-500 px-4 py-2 font-semibold text-slate-900">Save Asset</button>
-          </form>
-
-          <form className="rounded-xl border border-slate-800 bg-slate-900 p-5 space-y-3" onSubmit={createAssessment}>
-            <h2 className="text-xl font-semibold">2) Qualitative Impact Analysis</h2>
-            <select className="w-full rounded bg-slate-800 p-2" value={assessmentForm.sector} onChange={(e) => setAssessmentForm({ ...assessmentForm, sector: e.target.value })}>
-              {metadata?.sectors?.map((sector: string) => <option key={sector}>{sector}</option>)}
-            </select>
-            <select className="w-full rounded bg-slate-800 p-2" value={assessmentForm.risk} onChange={(e) => setAssessmentForm({ ...assessmentForm, risk: e.target.value })}>
-              {metadata?.risks?.map((risk: { value: string; label: string }) => <option key={risk.value} value={risk.value}>{risk.label}</option>)}
-            </select>
-            <select className="w-full rounded bg-slate-800 p-2" value={assessmentForm.assetId} onChange={(e) => setAssessmentForm({ ...assessmentForm, assetId: e.target.value })}>
-              <option value="">No linked asset</option>
-              {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.assetCode} - {asset.name}</option>)}
-            </select>
-            <select className="w-full rounded bg-slate-800 p-2" value={assessmentForm.controlEffectiveness} onChange={(e) => setAssessmentForm({ ...assessmentForm, controlEffectiveness: e.target.value })}>
-              {["Ineffective", "Partially Effective", "Substantially Effective", "Fully Effective"].map((level) => <option key={level}>{level}</option>)}
-            </select>
-            {activeQuestions.map((q) => (
-              <div key={q.id} className="rounded border border-slate-700 p-2 text-sm">
-                <p>{q.prompt}</p>
-                <p className="text-xs text-slate-400">{q.dimension} | {q.factorType} | {q.nistRef} | {q.isoRef}</p>
-                <select className="mt-2 w-full rounded bg-slate-800 p-2" value={responses[q.id] ?? 0} onChange={(e) => setResponses((prev) => ({ ...prev, [q.id]: Number(e.target.value) }))}>
-                  {scoreOptions.map((option) => <option key={option} value={option}>{option > 0 ? `+${option}` : option}</option>)}
-                </select>
-              </div>
-            ))}
-            <div className="rounded border border-dashed border-slate-700 p-2">
-              <h3 className="font-medium">Custom Scenario Question</h3>
-              <input className="mt-2 w-full rounded bg-slate-800 p-2" value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} placeholder="Type your custom scenario question" />
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <select className="rounded bg-slate-800 p-2" value={customDimension} onChange={(e) => setCustomDimension(e.target.value as "LIKELIHOOD" | "SEVERITY" | "BOTH")}>
-                  {["LIKELIHOOD", "SEVERITY", "BOTH"].map((v) => <option key={v}>{v}</option>)}
-                </select>
-                <select className="rounded bg-slate-800 p-2" value={customValue} onChange={(e) => setCustomValue(Number(e.target.value))}>
-                  {scoreOptions.map((option) => <option key={option} value={option}>{option > 0 ? `+${option}` : option}</option>)}
-                </select>
-              </div>
-              <button type="button" className="mt-2 rounded bg-slate-700 px-3 py-1 text-sm" onClick={addCustomResponse}>Add Custom Question</button>
-              {customResponses.map((entry, idx) => <p key={`${entry.prompt}-${idx}`} className="mt-1 text-xs text-cyan-300">{entry.dimension}: {entry.prompt} ({entry.value})</p>)}
-            </div>
-            <textarea className="w-full rounded bg-slate-800 p-2" value={assessmentForm.justification} onChange={(e) => setAssessmentForm({ ...assessmentForm, justification: e.target.value })} placeholder="Evidence and rationale" />
-            <button className="rounded bg-emerald-500 px-4 py-2 font-semibold text-slate-900">Run Assessment</button>
-          </form>
-        </section>
-
-        <section className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-xl font-semibold">3) Assessment Highlights</h2>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {assessments.slice(0, 6).map((record) => (
-              <article key={record.id} className="rounded border border-slate-700 p-3">
-                <p className="font-medium">{record.risk}</p>
-                <p className="text-sm text-slate-300">Sector: {record.sector}</p>
-                <p className="text-sm text-slate-300">Likelihood {record.likelihood} x Severity {record.severity} = {record.finalScore}</p>
-                <p className="text-sm text-slate-300">Inherent: {record.riskLevel} | Residual: {record.residualRisk}</p>
-                <a className="mt-2 inline-block text-cyan-300 underline text-sm" href={`/api/assessments/${record.id}/report`}>Download Summary</a>
-              </article>
-            ))}
+    <div className="iar-root">
+      <header className="iar-header">
+        <div className="logo">
+          <div className="logo-mark">IAR</div>
+          <div className="logo-sub">Information Security Risk Assessment</div>
+        </div>
+        <div className="header-right">
+          <div className="status-dot" />
+          <div className="header-stat">
+            Assets: <span>{assets.length}</span>
           </div>
-        </section>
-      </main>
+          <div className="header-stat">
+            High Risk: <span style={{ color: "var(--danger)" }}>{highCount}</span>
+          </div>
+          <a className="btn btn-sm" href="/database">
+            Database
+          </a>
+        </div>
+      </header>
+
+      <div className="layout">
+        <nav>
+          <div className="nav-section">
+            <div className="nav-label">Overview</div>
+            <button className={`nav-item ${section === "dashboard" ? "active" : ""}`} onClick={() => setSection("dashboard")}>
+              <span className="nav-icon">[■]</span> Dashboard
+            </button>
+          </div>
+          <div className="nav-section">
+            <div className="nav-label">Assets</div>
+            <button className={`nav-item ${section === "add" ? "active" : ""}`} onClick={() => setSection("add")}>
+              <span className="nav-icon">[+]</span> Add Asset
+            </button>
+            <button className={`nav-item ${section === "register" ? "active" : ""}`} onClick={() => setSection("register")}>
+              <span className="nav-icon">[≡]</span> Register
+            </button>
+          </div>
+          <div className="nav-section">
+            <div className="nav-label">Risk</div>
+            <button className={`nav-item ${section === "risk" ? "active" : ""}`} onClick={() => setSection("risk")}>
+              <span className="nav-icon">[△]</span> Risk Register
+            </button>
+            <button className={`nav-item ${section === "matrix" ? "active" : ""}`} onClick={() => setSection("matrix")}>
+              <span className="nav-icon">[#]</span> Risk Matrix
+            </button>
+          </div>
+          <div className="nav-section">
+            <div className="nav-label">Reference</div>
+            <button className={`nav-item ${section === "guidelines" ? "active" : ""}`} onClick={() => setSection("guidelines")}>
+              <span className="nav-icon">[?]</span> Guidelines
+            </button>
+          </div>
+        </nav>
+
+        <main>
+          {section === "dashboard" && (
+            <>
+              <div className="page-header">
+                <div>
+                  <div className="page-title">DASH<span>BOARD</span></div>
+                  <div className="page-desc">// system overview - real-time risk posture</div>
+                </div>
+              </div>
+              <div className="metrics-grid">
+                <div className="metric-card accent">
+                  <div className="metric-num">{assets.length}</div>
+                  <div className="metric-label">Total Assets</div>
+                </div>
+                <div className="metric-card danger">
+                  <div className="metric-num">{highCount}</div>
+                  <div className="metric-label">High Residual Risk</div>
+                </div>
+                <div className="metric-card warn">
+                  <div className="metric-num">{moderateCount}</div>
+                  <div className="metric-label">Moderate Residual Risk</div>
+                </div>
+                <div className="metric-card info">
+                  <div className="metric-num">{piiLikeCount}</div>
+                  <div className="metric-label">Confidential / Restricted</div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-header">Top risk assets</div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Asset</th>
+                        <th>Risk</th>
+                        <th>Inherent</th>
+                        <th>Residual</th>
+                        <th>Report</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assessments.slice(0, 6).map((record) => (
+                        <tr key={record.id}>
+                          <td>{assets.find((x) => x.id === record.assetId)?.name ?? "Unlinked asset"}</td>
+                          <td>{record.risk}</td>
+                          <td>{riskBadge(record.riskLevel)}</td>
+                          <td>{riskBadge(record.residualRisk)}</td>
+                          <td>
+                            <a className="btn btn-sm" href={`/api/assessments/${record.id}/report`}>
+                              Export
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {section === "add" && (
+            <>
+              <div className="page-header">
+                <div>
+                  <div className="page-title">ADD <span>ASSET</span></div>
+                  <div className="page-desc">// register asset and run qualitative impact analysis</div>
+                </div>
+              </div>
+
+              <form className="card" onSubmit={createAsset}>
+                <div className="card-header">01 - Primary details</div>
+                <div className="grid-2">
+                  <div>
+                    <label>Asset ID</label>
+                    <input value={assetForm.assetCode} onChange={(e) => setAssetForm({ ...assetForm, assetCode: e.target.value })} />
+                  </div>
+                  <div>
+                    <label>Sector</label>
+                    <select value={assetForm.sector} onChange={(e) => setAssetForm({ ...assetForm, sector: e.target.value })}>
+                      {metadata?.sectors.map((sector) => (
+                        <option key={sector}>{sector}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div>
+                    <label>Asset Name</label>
+                    <input value={assetForm.name} onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })} />
+                  </div>
+                  <div>
+                    <label>Owner</label>
+                    <input value={assetForm.owner} onChange={(e) => setAssetForm({ ...assetForm, owner: e.target.value })} />
+                  </div>
+                </div>
+                <label>Description</label>
+                <textarea value={assetForm.description} onChange={(e) => setAssetForm({ ...assetForm, description: e.target.value })} />
+
+                <div className="grid-3">
+                  <div>
+                    <label>Confidentiality</label>
+                    <select
+                      value={assetForm.confidentiality}
+                      onChange={(e) => setAssetForm({ ...assetForm, confidentiality: Number(e.target.value) })}
+                    >
+                      <option value={1}>Low (1)</option>
+                      <option value={2}>Medium (2)</option>
+                      <option value={3}>High (3)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Integrity</label>
+                    <select value={assetForm.integrity} onChange={(e) => setAssetForm({ ...assetForm, integrity: Number(e.target.value) })}>
+                      <option value={1}>Low (1)</option>
+                      <option value={2}>Medium (2)</option>
+                      <option value={3}>High (3)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Availability</label>
+                    <select
+                      value={assetForm.availability}
+                      onChange={(e) => setAssetForm({ ...assetForm, availability: Number(e.target.value) })}
+                    >
+                      <option value={1}>Low (1)</option>
+                      <option value={2}>Medium (2)</option>
+                      <option value={3}>High (3)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="action-row">
+                  <button className="btn btn-primary">Save Asset</button>
+                </div>
+              </form>
+
+              <form className="card" onSubmit={createAssessment}>
+                <div className="card-header">02 - Risk assessment and controls</div>
+                <div className="grid-2">
+                  <div>
+                    <label>Linked Asset</label>
+                    <select value={assessmentForm.assetId} onChange={(e) => setAssessmentForm({ ...assessmentForm, assetId: e.target.value })}>
+                      <option value="">No linked asset</option>
+                      {assets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.assetCode} - {asset.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Risk Scenario</label>
+                    <select value={assessmentForm.risk} onChange={(e) => setAssessmentForm({ ...assessmentForm, risk: e.target.value })}>
+                      {metadata?.risks.map((risk) => (
+                        <option key={risk.value} value={risk.value}>
+                          {risk.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div>
+                    <label>Sector</label>
+                    <select value={assessmentForm.sector} onChange={(e) => setAssessmentForm({ ...assessmentForm, sector: e.target.value })}>
+                      {metadata?.sectors.map((sector) => (
+                        <option key={sector}>{sector}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Control Effectiveness</label>
+                    <select
+                      value={assessmentForm.controlEffectiveness}
+                      onChange={(e) => setAssessmentForm({ ...assessmentForm, controlEffectiveness: e.target.value })}
+                    >
+                      {["Ineffective", "Partially Effective", "Substantially Effective", "Fully Effective"].map((level) => (
+                        <option key={level}>{level}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="card-header">Question scoring</div>
+                {activeQuestions.map((question) => (
+                  <div key={question.id} className="info-row">
+                    <div className="val">
+                      {question.prompt}
+                      <div className="lbl">
+                        {question.dimension} | {question.factorType} | {question.nistRef} | {question.isoRef}
+                      </div>
+                    </div>
+                    <select
+                      style={{ maxWidth: 120 }}
+                      value={responses[question.id] ?? 0}
+                      onChange={(e) => setResponses((prev) => ({ ...prev, [question.id]: Number(e.target.value) }))}
+                    >
+                      {scoreOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option > 0 ? `+${option}` : option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+                <div className="divider" />
+                <div className="grid-3">
+                  <input value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} placeholder="Custom scenario question" />
+                  <select value={customDimension} onChange={(e) => setCustomDimension(e.target.value as CustomResponse["dimension"])}>
+                    <option value="LIKELIHOOD">LIKELIHOOD</option>
+                    <option value="SEVERITY">SEVERITY</option>
+                    <option value="BOTH">BOTH</option>
+                  </select>
+                  <select value={customValue} onChange={(e) => setCustomValue(Number(e.target.value))}>
+                    {scoreOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option > 0 ? `+${option}` : option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button type="button" className="btn btn-sm" onClick={addCustomResponse} style={{ marginTop: 8 }}>
+                  Add Custom
+                </button>
+                {customResponses.map((entry, index) => (
+                  <div className="info-row" key={`${entry.prompt}-${index}`}>
+                    <div className="val">{entry.prompt}</div>
+                    <div>{entry.value}</div>
+                  </div>
+                ))}
+                <label>Justification</label>
+                <textarea
+                  value={assessmentForm.justification}
+                  onChange={(e) => setAssessmentForm({ ...assessmentForm, justification: e.target.value })}
+                />
+                <div className="action-row">
+                  <button className="btn btn-primary">Run Assessment</button>
+                </div>
+              </form>
+            </>
+          )}
+
+          {section === "register" && (
+            <>
+              <div className="page-header">
+                <div>
+                  <div className="page-title">ASSET <span>REGISTER</span></div>
+                  <div className="page-desc">// complete information asset inventory</div>
+                </div>
+              </div>
+              <div className="search-bar">
+                <input placeholder="Search by name, ID, owner..." value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Asset ID</th>
+                      <th>Name</th>
+                      <th>Owner</th>
+                      <th>CIA</th>
+                      <th>Score</th>
+                      <th>Classification</th>
+                      <th>Residual Risk</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAssets.map((asset) => (
+                      <tr key={asset.id}>
+                        <td><span className="badge badge-id">{asset.assetCode}</span></td>
+                        <td><strong>{asset.name}</strong></td>
+                        <td>{asset.owner}</td>
+                        <td>{asset.confidentiality}/{asset.integrity}/{asset.availability}</td>
+                        <td>{asset.assetValue}</td>
+                        <td>{classBadge(asset.classification)}</td>
+                        <td>{riskBadge(linkedByAsset.get(asset.id)?.residualRisk ?? "Low")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {section === "risk" && (
+            <>
+              <div className="page-header">
+                <div>
+                  <div className="page-title">RISK <span>REGISTER</span></div>
+                  <div className="page-desc">// inherent and residual risk across all assets</div>
+                </div>
+              </div>
+              <div className="search-bar">
+                <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)}>
+                  <option value="">All residual risks</option>
+                  <option value="Critical">Critical</option>
+                  <option value="High">High</option>
+                  <option value="Moderate">Moderate</option>
+                  <option value="Low">Low</option>
+                </select>
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Asset</th>
+                      <th>Risk</th>
+                      <th>Likelihood</th>
+                      <th>Severity</th>
+                      <th>Inherent</th>
+                      <th>Control Effectiveness</th>
+                      <th>Residual</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAssessments.map((record) => (
+                      <tr key={record.id}>
+                        <td>{assets.find((asset) => asset.id === record.assetId)?.assetCode ?? "UNLINKED"}</td>
+                        <td>{record.risk}</td>
+                        <td>{record.likelihood}</td>
+                        <td>{record.severity}</td>
+                        <td>{riskBadge(record.riskLevel)}</td>
+                        <td>{record.controlEffectiveness}</td>
+                        <td>{riskBadge(record.residualRisk)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="card" style={{ marginTop: 16 }}>
+                <div className="card-header">Control implementation coverage</div>
+                <div className="ctrl-bar-wrap">
+                  <div className="ctrl-bar-label">
+                    <span>Overall effectiveness score</span>
+                    <span>{controlCoverage}%</span>
+                  </div>
+                  <div className="ctrl-bar-track">
+                    <div className="ctrl-bar-fill" style={{ width: `${controlCoverage}%`, background: "var(--accent)" }} />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {section === "matrix" && (
+            <>
+              <div className="page-header">
+                <div>
+                  <div className="page-title">RISK <span>MATRIX</span></div>
+                  <div className="page-desc">// probability x severity scoring reference</div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-header">Inherent risk matrix</div>
+                <div className="matrix">
+                  <div className="mx-cell mx-hdr">Severity / Probability</div>
+                  <div className="mx-cell mx-hdr">1</div>
+                  <div className="mx-cell mx-hdr">2</div>
+                  <div className="mx-cell mx-hdr">3</div>
+                  <div className="mx-cell mx-hdr">4</div>
+                  <div className="mx-cell mx-hdr">5</div>
+                  <div className="mx-cell mx-hdr">5 High</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-hi">H</div>
+                  <div className="mx-cell mx-hi">H</div>
+                  <div className="mx-cell mx-hi">H</div>
+                  <div className="mx-cell mx-hdr">4 Major</div>
+                  <div className="mx-cell mx-lo">L</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-hi">H</div>
+                  <div className="mx-cell mx-hi">H</div>
+                  <div className="mx-cell mx-hdr">3 Moderate</div>
+                  <div className="mx-cell mx-lo">L</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-hi">H</div>
+                  <div className="mx-cell mx-hdr">2 Minor</div>
+                  <div className="mx-cell mx-lo">L</div>
+                  <div className="mx-cell mx-lo">L</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-mo">M</div>
+                  <div className="mx-cell mx-hdr">1 Insignificant</div>
+                  <div className="mx-cell mx-vl">VL</div>
+                  <div className="mx-cell mx-lo">L</div>
+                  <div className="mx-cell mx-lo">L</div>
+                  <div className="mx-cell mx-lo">L</div>
+                  <div className="mx-cell mx-mo">M</div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {section === "guidelines" && (
+            <>
+              <div className="page-header">
+                <div>
+                  <div className="page-title">RISK <span>GUIDELINES</span></div>
+                  <div className="page-desc">// reference documentation from template and standards</div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-header">Asset classification and valuation</div>
+                <div className="info-row"><div className="lbl">Score 3</div><div className="val">Public</div></div>
+                <div className="info-row"><div className="lbl">Score 4-5</div><div className="val">Internal Use</div></div>
+                <div className="info-row"><div className="lbl">Score 6-7</div><div className="val">Confidential</div></div>
+                <div className="info-row"><div className="lbl">Score 8-9</div><div className="val">Restricted</div></div>
+              </div>
+              <div className="card">
+                <div className="card-header">Framework mapping</div>
+                <div className="info-row"><div className="lbl">NIST CSF</div><div className="val">Identify, Protect, Detect, Respond, Recover</div></div>
+                <div className="info-row"><div className="lbl">ISO/IEC 27001</div><div className="val">Risk treatment, controls, continual improvement</div></div>
+                <div className="info-row"><div className="lbl">Template standard</div><div className="val">Inherent risk matrix + control effectiveness + residual risk</div></div>
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+      {notification && <div className={`notification show ${notification.error ? "error" : ""}`}>{notification.text}</div>}
     </div>
   );
 }
