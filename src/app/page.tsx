@@ -252,6 +252,11 @@ export default function Home() {
     <div className="iar-root">
       <header className="iar-header">
         <div className="logo">
+          <div className="logo-lens" aria-hidden="true">
+            <span className="lens-ring" />
+            <span className="lens-core" />
+            <span className="lens-glint" />
+          </div>
           <div className="logo-mark">ImpactLens</div>
           <div className="logo-sub">Information Security Risk Assessment Platform</div>
         </div>
