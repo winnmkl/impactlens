@@ -1,0 +1,13 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/assessments/[id]/report/route": "app/api/assessments/[id]/report/route.js",
+  "/api/assessments/route": "app/api/assessments/route.js",
+  "/api/assets/route": "app/api/assets/route.js",
+  "/api/database/route": "app/api/database/route.js",
+  "/api/governance/route": "app/api/governance/route.js",
+  "/api/metadata/route": "app/api/metadata/route.js",
+  "/database/page": "app/database/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/page": "app/page.js"
+}

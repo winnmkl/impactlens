@@ -1,0 +1,13 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/assessments/[id]/report/route": "/api/assessments/[id]/report",
+  "/api/assessments/route": "/api/assessments",
+  "/api/assets/route": "/api/assets",
+  "/api/database/route": "/api/database",
+  "/api/governance/route": "/api/governance",
+  "/api/metadata/route": "/api/metadata",
+  "/database/page": "/database",
+  "/favicon.ico/route": "/favicon.ico",
+  "/page": "/"
+}
